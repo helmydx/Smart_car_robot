@@ -1,0 +1,260 @@
+#define ENA   D7
+#define ENB   D8
+
+#define IN_1  D1
+#define IN_2  D2
+#define IN_3  D5
+#define IN_4  D6
+
+#include <Servo.h>
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
+
+String command;
+String lastDirection = "S";
+
+int speedCar = 120;     // Kecepatan awal
+int speed_Coeff = 2;
+
+const char* ssid = "robot_poskas";
+const char* pass = "12345678";
+
+ESP8266WebServer server(80);
+Servo servo;
+
+void setup() {
+
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+
+  pinMode(IN_1, OUTPUT);
+  pinMode(IN_2, OUTPUT);
+  pinMode(IN_3, OUTPUT);
+  pinMode(IN_4, OUTPUT);
+
+  stopRobot();
+
+  Serial.begin(115200);
+
+  servo.attach(2, 500, 2400);
+  servo.write(0);
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(ssid, pass);
+
+  Serial.println();
+  Serial.print("AP IP Address : ");
+  Serial.println(WiFi.softAPIP());
+
+  server.on("/", HTTP_handleRoot);
+  server.onNotFound(HTTP_handleRoot);
+  server.begin();
+}
+
+// =====================
+// GERAK MAJU
+// =====================
+void goAhead() {
+
+  digitalWrite(IN_1, HIGH);
+  digitalWrite(IN_2, LOW);
+
+  digitalWrite(IN_3, LOW);
+  digitalWrite(IN_4, HIGH);
+
+  analogWrite(ENA, speedCar);
+  analogWrite(ENB, speedCar);
+}
+
+// =====================
+// GERAK MUNDUR
+// =====================
+void goBack() {
+
+  digitalWrite(IN_1, LOW);
+  digitalWrite(IN_2, HIGH);
+
+  digitalWrite(IN_3, HIGH);
+  digitalWrite(IN_4, LOW);
+
+  analogWrite(ENA, speedCar);
+  analogWrite(ENB, speedCar);
+}
+
+// =====================
+// BELOK KANAN
+// =====================
+void goRight() {
+
+  digitalWrite(IN_1, LOW);
+  digitalWrite(IN_2, HIGH);
+
+  digitalWrite(IN_3, LOW);
+  digitalWrite(IN_4, HIGH);
+
+  analogWrite(ENA, speedCar / speed_Coeff);
+  analogWrite(ENB, speedCar);
+}
+
+// =====================
+// BELOK KIRI
+// =====================
+void goLeft() {
+
+  digitalWrite(IN_1, HIGH);
+  digitalWrite(IN_2, LOW);
+
+  digitalWrite(IN_3, HIGH);
+  digitalWrite(IN_4, LOW);
+
+  analogWrite(ENA, speedCar);
+  analogWrite(ENB, speedCar / speed_Coeff);
+}
+
+// =====================
+// MAJU SERONG KANAN
+// =====================
+void goAheadRight() {
+
+  digitalWrite(IN_1, HIGH);
+  digitalWrite(IN_2, LOW);
+
+  digitalWrite(IN_3, LOW);
+  digitalWrite(IN_4, HIGH);
+
+  analogWrite(ENA, speedCar / speed_Coeff);
+  analogWrite(ENB, speedCar);
+}
+
+// =====================
+// MAJU SERONG KIRI
+// =====================
+void goAheadLeft() {
+
+  digitalWrite(IN_1, HIGH);
+  digitalWrite(IN_2, LOW);
+
+  digitalWrite(IN_3, LOW);
+  digitalWrite(IN_4, HIGH);
+
+  analogWrite(ENA, speedCar);
+  analogWrite(ENB, speedCar / speed_Coeff);
+}
+
+// =====================
+// MUNDUR SERONG KANAN
+// =====================
+void goBackRight() {
+
+  digitalWrite(IN_1, LOW);
+  digitalWrite(IN_2, HIGH);
+
+  digitalWrite(IN_3, HIGH);
+  digitalWrite(IN_4, LOW);
+
+  analogWrite(ENA, speedCar / speed_Coeff);
+  analogWrite(ENB, speedCar);
+}
+
+// =====================
+// MUNDUR SERONG KIRI
+// =====================
+void goBackLeft() {
+
+  digitalWrite(IN_1, LOW);
+  digitalWrite(IN_2, HIGH);
+
+  digitalWrite(IN_3, HIGH);
+  digitalWrite(IN_4, LOW);
+
+  analogWrite(ENA, speedCar);
+  analogWrite(ENB, speedCar / speed_Coeff);
+}
+
+// =====================
+// STOP
+// =====================
+void stopRobot() {
+
+  digitalWrite(IN_1, LOW);
+  digitalWrite(IN_2, LOW);
+
+  digitalWrite(IN_3, LOW);
+  digitalWrite(IN_4, LOW);
+
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
+}
+
+// =====================
+// TENDANG
+// =====================
+void tendang() {
+
+  servo.write(120);
+  delay(250);
+
+  servo.write(0);
+}
+
+// =====================
+// APPLY SPEED DYNAMICALLY
+// =====================
+void applySpeed() {
+  if (lastDirection == "F") goAhead();
+  else if (lastDirection == "B") goBack();
+  else if (lastDirection == "L") goLeft();
+  else if (lastDirection == "R") goRight();
+  else if (lastDirection == "G") goAheadLeft();
+  else if (lastDirection == "I") goAheadRight();
+  else if (lastDirection == "H") goBackLeft();
+  else if (lastDirection == "J") goBackRight();
+}
+
+// =====================
+// LOOP
+// =====================
+void loop() {
+
+  server.handleClient();
+
+  command = server.arg("State");
+
+  if (command == "F") { goAhead(); lastDirection = "F"; }
+  else if (command == "B") { goBack(); lastDirection = "B"; }
+  else if (command == "L") { goLeft(); lastDirection = "L"; }
+  else if (command == "R") { goRight(); lastDirection = "R"; }
+  else if (command == "G") { goAheadLeft(); lastDirection = "G"; }
+  else if (command == "I") { goAheadRight(); lastDirection = "I"; }
+  else if (command == "H") { goBackLeft(); lastDirection = "H"; }
+  else if (command == "J") { goBackRight(); lastDirection = "J"; }
+  else if (command == "S") { stopRobot(); lastDirection = "S"; }
+  else if (command == "T") { tendang(); }
+
+  // Pengaturan kecepatan (diturunkan untuk motor 12V)
+
+  else if (command == "0") { speedCar = 60; applySpeed(); }
+  else if (command == "1") { speedCar = 90; applySpeed(); }
+  else if (command == "2") { speedCar = 110; applySpeed(); }
+  else if (command == "3") { speedCar = 130; applySpeed(); }
+  else if (command == "4") { speedCar = 150; applySpeed(); }
+  else if (command == "5") { speedCar = 170; applySpeed(); }
+  else if (command == "6") { speedCar = 190; applySpeed(); }
+  else if (command == "7") { speedCar = 210; applySpeed(); }
+  else if (command == "8") { speedCar = 230; applySpeed(); }
+  else if (command == "9") { speedCar = 250; applySpeed(); }
+}
+
+// =====================
+// WEB SERVER
+// =====================
+void HTTP_handleRoot() {
+
+  if (server.hasArg("State")) {
+    Serial.println(server.arg("State"));
+  }
+
+  server.send(200, "text/html", "");
+  delay(1);
+}
